@@ -1,6 +1,8 @@
 #!/bin/bash
 
 NSO_BINARY_REPO_URL="https://earth.tail-f.com:8443"
+JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/8u144-b01/090f390dda5b47b9b721c7dfaa008135/jdk-8u144-linux-x64.rpm'
+JAVA_VERSION='jdk1.8.0_144'
 REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
@@ -15,6 +17,14 @@ print_help () {
 Usage: nso-install -v NSO-VERSION -d NSO-INSTALL-BASE-DIR [-r NSO-BINARY-REPO-URL] -u USERNAME [-p PASSWORD] [-n NED-NAME]*
 Support OS versions: MACOS, CentOS
 
+Usage: nso-install -v NSO-VERSION -d NSO-INSTALL-BASE-DIR [-r NSO-BINARY-REPO-URL] -u USERNAME [-p PASSWORD] [-i PROXY] [] [-n NED-NAME]*
+OPTIONS
+[-r NSO-BINARY-REPO-URL]
+[-p PASSWORD] 
+[-i PROXY] - proxy URL
+[-x] - disable proxy environment variables 
+[-n NED-NAME]*
+>>>>>>> 3740ce2b914a1348eb0c01ed5d27bdb0dde33161
 This script will attempt to install the NSO version indicated with the local-install option
 in the directory NSO-INSTALL-BASE-DIR/NSO-VERSION
 and the latest NEDs for the version of NSO specified.  You can specify 
@@ -28,6 +38,9 @@ be downloaded and installed.
 
 If you have a password with special characters such as pass!word escape
 the special characters, ie. -p pass\!word when running the script
+
+If you are having trouble downloading you may need to adjust your proxy environment
+settings.
 	"
 	exit 0
 }
@@ -93,6 +106,19 @@ LINUX_VERSION="$( uname | tr '[:upper:]' '[:lower:]' )"
 NSO_BINARY="nso-$NSO_VERSION.$LINUX_VERSION.x86_64.installer.bin"
 NSO_NED_REPOSITORY="$NSO_INSTALL_DIR/neds"
 LOCAL_BINARYS_DIR="$NSO_INSTALL_DIR/binaries"
+DISTRO="unknown"
+if [ "$LINUX_VERSION" == "linux" ]; then
+    # If available, use LSB to identify distribution
+    if [ -f /etc/lsb-release -o -d /etc/lsb-release.d ]; then
+        DISTRO_TEMP=$(lsb_release -i | cut -d: -f2 | sed s/'^\t'//)
+    # Otherwise, use release info file
+    else
+        DISTRO_TEMP=$(ls -d /etc/[A-Za-z]*[_-][rv]e[lr]* | grep -v "lsb" | cut -d'/' -f3 | cut -d'-' -f1 | cut -d'_' -f1)
+	if [[ $DISTRO_TEMP == *"centos"* ]]; then
+		DISTRO="centos"
+	fi
+    fi
+fi
 
 printf "Linux version: %s\n" "$LINUX_VERSION"
 printf "NSO version: %s\n" "$NSO_VERSION"
@@ -101,9 +127,25 @@ printf "NED Install Location: %s\n" "$NSO_NED_REPOSITORY/$NSO_VERSION"
 printf "Binary Repo username: %s\n" "$REPO_USERNAME"
 printf "Binary Repo password: %s\n" "$PASSWORD_ECHO"
 printf "NEDs: %s\n" ""${NEDS[@]}""
+printf "Distribution Type: %s\n" "$DISTRO"
 
 if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ] || [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
 	print_error "Please enter missing information" show_help
+fi
+if [ "$DISTRO" == 'unknown' ]; then
+	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
+fi
+if [ "$DISTRO" == 'centos' ]; then
+	yum update -y
+	yum install -y ant perl wget net-tools zlib-dev openssl-devel sqlite-devel bzip2-devel python-devel
+	yum -y groupinstall "Development tools"
+	if [ ! -e /usr/java/$JAVA_VERSION/bin/java ]; then
+		curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" -x http://proxy.esl.cisco.com:80 $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+		rpm -ihv $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+	fi
+	/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
+	/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
+	echo
 fi
 
 echo "Checking if version ($NSO_BINARY) is available on repo server"
