@@ -1,14 +1,14 @@
-# This file can be added to the current NSO project directory to add functionality to the current Makefile that is
-# created when one starts a project with the ncs-project command.  To incorporate into the current Makefile add the following 
-# line to the top of the Makefile
+# This file in conjunction conjunction with the simululation.mk file in the project directory can be used  to add 
+# functionality to the current Makefile that is created when one starts a project with the ncs-project command.
+# To incorporate into the current Makefile add the following line to the top of the Makefile
 #
-# include ./setupsimulation.mk
+# include {nsotools directory}/setupsimulation.mk
 # PROJECTDIR = $(pwd)
 #
 # The intent of the functionality is to allow one to specify the project's simulated devices and their type and then have Make 
 # handle linking the NEDs necessary into the project package directory, load the devices with initial config if present in the
 # init_data/simulation/devices directory, load any initialization data for the project from the init_data/simulation, and hook
-# into the original projects Make system
+# into the original projects Make system.
 #
 
 NSO_CLI=ncs_cli -u admin
