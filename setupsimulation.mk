@@ -110,10 +110,11 @@ simload: simstart
 #simstart: simdirsbuild start
 simstart:
 	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Starting the environment)
-#	$(NETSIM) start
+	ncs;
+	$(NETSIM) start
 	for device in $$(ncs-netsim list | grep name | cut -d " " -f1 | cut -d "=" -f2); do \
 		echo "device: $$device"; \
-		sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config | $(NSO_CLI); \
+		sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.5 | $(NSO_CLI); \
 	done; \
 	echo "show devices brief" | $(NSO_CLI);
 
@@ -126,6 +127,3 @@ simdirsclean:
 	(for DIR in $(NSO_DIRS); do \
 		if [[ -d $${DIR} ]]; then rm -rf $${DIR}; fi; \
 	done)
-
-.PHONY: simstop
-
