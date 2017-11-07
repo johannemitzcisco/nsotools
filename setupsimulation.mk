@@ -67,7 +67,7 @@ simnetworkbuild: simdirsbuild
 			count=-1; \
 		fi; \
 		echo "NED: $$name $$ned $$count"; \
-		nedfileordir=$$(ls -d $(NSO_NEDS)/*-$$ned-* | head -n 1); \
+		nedfileordir=$$(ls -d $(NSO_NEDS)/*-$$ned-*.tar.gz | head -n 1); \
 		nedfilename=$$(basename $$nedfileordir); \
 		echo "$$ned Ned File $$nedfileordir"; \
 		if [[ ! -d $(PROJECT_PACKAGES)/$$nedfilename && ! -h $(PROJECT_PACKAGES)/$$nedfilename && -f $$nedfileordir ]]; then \

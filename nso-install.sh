@@ -7,7 +7,8 @@ REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
 NSO_VERSION="(missing)"
-
+SKIP_OS=false
+DISABLE_ENV_PROXY=false
 NSO_INSTALLED=false
 NEDS=()
 
@@ -23,8 +24,9 @@ OPTIONS
 [-p PASSWORD] 
 [-i PROXY] - proxy URL
 [-x] - disable proxy environment variables 
+[-s] - skip update of OS
 [-n NED-NAME]*
->>>>>>> 3740ce2b914a1348eb0c01ed5d27bdb0dde33161
+
 This script will attempt to install the NSO version indicated with the local-install option
 in the directory NSO-INSTALL-BASE-DIR/NSO-VERSION
 and the latest NEDs for the version of NSO specified.  You can specify 
@@ -62,7 +64,7 @@ read_dom () {
     return $ret
 }
 
-while getopts ":d:r:u:p:v:n:h" opt; do
+while getopts ":d:r:u:p:v:n:sxh" opt; do
 	case $opt in
 		d) NSO_INSTALL_DIR="$OPTARG"
 		;;
@@ -75,6 +77,10 @@ while getopts ":d:r:u:p:v:n:h" opt; do
 		v) NSO_VERSION="$OPTARG"
 		;;
 		n) NEDS=("${NEDS[@]}" "$OPTARG") 
+		;;
+		s) SKIP_OS=true
+		;;
+		x) DISABLE_ENV_PROXY=true
 		;;
 		h) print_help 
 		;;
@@ -128,6 +134,8 @@ printf "Binary Repo username: %s\n" "$REPO_USERNAME"
 printf "Binary Repo password: %s\n" "$PASSWORD_ECHO"
 printf "NEDs: %s\n" ""${NEDS[@]}""
 printf "Distribution Type: %s\n" "$DISTRO"
+printf "Skip OS Update: %s\n" "$SKIP_OS"
+printf "Disable Envronment Proxy Configuration: %s\n" "$DISABLE_ENV_PROXY"
 
 if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ] || [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
 	print_error "Please enter missing information" show_help
@@ -135,16 +143,29 @@ fi
 if [ "$DISTRO" == 'unknown' ]; then
 	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
 fi
-if [ "$DISTRO" == 'centos' ]; then
+if [ "$DISABLE_ENV_PROXY" == "true" ]; then
+	_http_proxy=$http_proxy
+	_https_proxy=$https_proxy
+	_HTTP_PROXY=$HTTP_PROXY
+	_HTTPs_PROXY=$HTTPS_PROXY
+	unset http_proxy
+	unset https_proxy
+	unset HTTP_PROXY
+	unset HTTPS_PROXY
+fi
+
+if [ "$SKIP_OS" == "true" ]; then
+	echo "Skipping OS update check"
+elif [ "$DISTRO" == 'centos' ]; then
 	yum update -y
 	yum install -y ant perl wget net-tools zlib-dev openssl-devel sqlite-devel bzip2-devel python-devel
 	yum -y groupinstall "Development tools"
 	if [ ! -e /usr/java/$JAVA_VERSION/bin/java ]; then
 		curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" -x http://proxy.esl.cisco.com:80 $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
 		rpm -ihv $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+		/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
+		/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
 	fi
-	/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
-	/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
 	echo
 fi
 
@@ -243,6 +264,13 @@ for ned in "${NEDS[@]}"; do
 		fi
 	fi
 done
+
+if [ "$DISABLE_ENV_PROXY" == "true" ]; then
+	http_proxy=$_http_proxy
+	https_proxy=$_https_proxy
+	HTTP_PROXY=$_HTTP_PROXY
+	HTTPs_PROXY=$_HTTPS_PROXY
+fi
 
 echo "Install Complete"
 
