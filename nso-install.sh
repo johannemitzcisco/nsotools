@@ -28,6 +28,7 @@ OPTIONS
 [-x] - disable proxy environment variables 
 [-s] - skip install and/or update of required OS packages
 [-n NED-NAME]* - Multiple -n entries to specify the NEDs to download and unpack
+[-l] - list the available NEDs on the repository server
 [-h] - pring help
 
 This script will attempt to install the NSO version indicated with the local-install option
@@ -70,7 +71,53 @@ read_dom () {
     return $ret
 }
 
-while getopts ":d:r:u:p:v:n:sxh" opt; do
+list_available_repo_neds () {
+	get_username
+	get_password
+	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/ncs-pkgs/"
+	echo $url
+	file_list_xml=$(curl --silent $url)
+#	echo $file_list_xml
+	echo " -------  Repository NED List  -----------------"
+	while read_dom; do
+		if [[ $ENTITY == "a href="*'/"' ]]; then
+			echo ${CONTENT/\//}
+		fi
+	done < <(echo "$file_list_xml")
+	exit 0
+}
+
+get_username () {
+	if [ "$REPO_USERNAME" = "(missing)" ]; then
+		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host username"
+		while IFS= read -r -s -n1 user; do
+			if [[ -z $user ]]; then
+				echo
+				break
+			else
+				echo -n '*'
+				REPO_USERNAME+=$user
+			fi
+		done
+	fi
+}
+
+get_password () {
+	if [ -z "$REPO_PASSWORD" ]; then
+		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host password"
+		while IFS= read -r -s -n1 pass; do
+			if [[ -z $pass ]]; then
+				echo
+				break
+			else
+				echo -n '*'
+				REPO_PASSWORD+=$pass
+			fi
+		done
+	fi
+}
+
+while getopts ":d:r:u:p:v:n:sxhl" opt; do
 	case $opt in
 		d) NSO_INSTALL_DIR="$OPTARG"
 		;;
@@ -90,24 +137,15 @@ while getopts ":d:r:u:p:v:n:sxh" opt; do
 		;;
 		h) print_help 
 		;;
+		l) list_available_repo_neds
+		;;
 		\?) 
 			print_error "Invalid option -$OPTARG" "show_help"
 		;;
 	esac
 done
 
-if [ -z "$REPO_PASSWORD" ]; then
-	print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host password"
-	while IFS= read -r -s -n1 pass; do
-		if [[ -z $pass ]]; then
-			echo
-			break
-		else
-			echo -n '*'
-			REPO_PASSWORD+=$pass
-		fi
-	done
-fi
+get_password
 
 PASSWORD_ECHO="(hidden)"
 if [ -z "$REPO_PASSWORD" ];
