@@ -130,6 +130,8 @@ if [ "$LINUX_VERSION" == "linux" ]; then
 		DISTRO="centos"
 	fi
     fi
+elif [ "$LINUX_VERSION" == "darwin" ]; then
+	DISTRO="macos"
 fi
 
 echo "-----  Install Configuration -------------------"
