@@ -82,8 +82,8 @@ simnetworkbuild: simdirsbuild
 				fi; \
 				networkcreated="true"; \
 			else \
-				if [ $$count = 1 ]; then echo "Add Device"; $(NETSIM) add-device $$nedfileordir $$name; fi; \
-				if [ $$count > 1 ]; then echo "Add to Network"; $(NETSIM) add-to-network $$nedfileordir $$count $$name; fi; \
+				if [ $$count = 1 ]; then echo "Add Device"; $(NETSIM) add-device $$nedfileordir $$name; \
+				elif [ $$count > 1 ]; then echo "Add to Network"; $(NETSIM) add-to-network $$nedfileordir $$count $$name; fi; \
 			fi; \
 		fi; \
 	done
