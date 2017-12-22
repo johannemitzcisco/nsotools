@@ -118,7 +118,6 @@ list_available_repo_neds () {
 		repo_search="?C=N;O=A;P=*$1*"
 	fi
 	local url="$NSO_REPO_NED_DIR/$repo_search"
-	echo $url
 	ned_list_xml=$(request_url $url)
 	echo " -------  Repository NED List  -----------------"
 	while read_dom; do
