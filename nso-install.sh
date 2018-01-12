@@ -74,9 +74,37 @@ read_dom () {
     return $ret
 }
 
+get_username () {
+	if [ "$REPO_USERNAME" = "(missing)" ]; then
+		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host username"
+		while IFS= read -r -s -n1 user; do
+			if [[ -z $user ]]; then
+				echo
+				break
+			else
+				echo -n '*'
+				REPO_USERNAME+=$user
+			fi
+		done
+	fi
+}
+
+get_password () {
+	if [ -z "$REPO_PASSWORD" ]; then
+		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host password"
+		while IFS= read -r -s -n1 pass; do
+			if [[ -z $pass ]]; then
+				echo
+				break
+			else
+				echo -n '*'
+				REPO_PASSWORD+=$pass
+			fi
+		done
+	fi
+}
+
 request_url () {
-	get_username
-	get_password
 	local url="--silent --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
 	if [ "$DEBUG" == "true" ]; then
 		print_msg "DEBUG" "URL: $url"
@@ -113,12 +141,16 @@ get_latest_ned_version () {
 }
 
 list_available_repo_neds () {
+	get_username
+	get_password
 	local repo_search=""
 	if [ "$1" != "" ]; then
 		repo_search="?C=N;O=A;P=*$1*"
 	fi
 	local url="$NSO_REPO_NED_DIR/$repo_search"
-	ned_list_xml=$(request_url $url)
+#	request_url $url
+	echo "here2"
+	ned_list_xml=$(request_url "$url")
 	echo " -------  Repository NED List  -----------------"
 	while read_dom; do
 		if [[ $ENTITY == "a href="*'/"' ]]; then
@@ -130,36 +162,6 @@ list_available_repo_neds () {
 		fi
 	done < <(echo "$ned_list_xml")
 	exit 0
-}
-
-get_username () {
-	if [ "$REPO_USERNAME" = "(missing)" ]; then
-		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host username"
-		while IFS= read -r -s -n1 user; do
-			if [[ -z $user ]]; then
-				echo
-				break
-			else
-				echo -n '*'
-				REPO_USERNAME+=$user
-			fi
-		done
-	fi
-}
-
-get_password () {
-	if [ -z "$REPO_PASSWORD" ]; then
-		print_msg "INFORMATION REQUIRED" "Please enter the NSO binary server host password"
-		while IFS= read -r -s -n1 pass; do
-			if [[ -z $pass ]]; then
-				echo
-				break
-			else
-				echo -n '*'
-				REPO_PASSWORD+=$pass
-			fi
-		done
-	fi
 }
 
 while getopts ":d:r:u:p:v:n:L:sxhl" opt; do
