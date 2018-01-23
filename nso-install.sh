@@ -1,10 +1,11 @@
 #!/bin/bash
 
 NSO_BINARY_REPO_URL="https://earth.tail-f.com:8443"
+NSO_REPO_BINARY_DIR="ncs"
 NSO_REPO_NED_DIR="ncs-pkgs"
 JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/8u144-b01/090f390dda5b47b9b721c7dfaa008135/jdk-8u144-linux-x64.rpm'
 JAVA_VERSION='jdk1.8.0_144'
-REPO_URL_SORT='?O=D' # \ escapes for the script
+REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
 NSO_VERSION="(missing)"
@@ -12,7 +13,7 @@ SKIP_OS=false
 DISABLE_ENV_PROXY=false
 NSO_INSTALLED=false
 NEDS=()
-DEBUG=true
+DEBUG=false
 
 print_help () {
 	echo "
@@ -22,7 +23,7 @@ Script to download and install the latest NSO version and related NEDs
 Support OS versions to install on: MACOS, CentOS
 
 Usage: nso-install -v NSO-VERSION -d NSO-INSTALL-BASE-DIR [OPTIONS]
-OPTIONS
+OPTIONS (The order of the options changes the behavior, best to specify in the order listed here)
 [-r NSO-BINARY-REPO-URL] - An http/https url where the software is located
 [-u USERNAME] - Username for repo authentication
 [-p PASSWORD] - Password for repo authentication
@@ -32,7 +33,9 @@ OPTIONS
 [-n NED-NAME]* - Multiple -n entries to specify the NEDs to download and unpack
 [-l] - list the available NEDs on the repository server
 [-L SEARCH-STRING ] - list the available NEDs on the repository server that have SEARCH-STRING in their name
-[-h] - pring help
+[-V] - List available NSO versions
+[-D] - print debug statements
+[-h] - print help
 
 This script will attempt to install the NSO version indicated with the local-install option
 in the directory NSO-INSTALL-BASE-DIR/NSO-VERSION
@@ -55,7 +58,9 @@ settings.
 }
 
 print_msg () {
-	printf "$1: %s\n" "$2"
+	if [[ $1 == "DEBUG" && "$DEBUG" == "true" ]] || [[ $1 != "DEBUG" ]]; then
+		printf "$1: %s\n" "$2"
+	fi
 }
 print_error () {
 	print_msg "ERROR" "$1"
@@ -82,7 +87,7 @@ get_username () {
 				echo
 				break
 			else
-				echo -n '*'
+				echo -n $user
 				REPO_USERNAME+=$user
 			fi
 		done
@@ -106,13 +111,13 @@ get_password () {
 
 request_url () {
 	local url="--silent --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
-	if [ "$DEBUG" == "true" ]; then
-		print_msg "DEBUG" "URL: $url"
-	fi
+	print_msg "DEBUG" "URL: $url"
 	echo `curl $url`
 }
 
 get_latest_ned_version () {
+	get_username
+	get_password
 	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/$REPO_URL_SORT")
 	latest_version=1
 	while read_dom; do
@@ -140,6 +145,44 @@ get_latest_ned_version () {
 	ned_version=$latest_version
 }
 
+list_available_nso_versions () {
+	get_username
+	get_password
+	local repo_search=""
+	if [ "$1" != "" ]; then
+#		repo_search="?C=N;O=A;P=*$1*"
+		repo_search="?C=N;O=A"
+	fi
+	local url="$NSO_REPO_BINARY_DIR/$repo_search"
+	print_msg "INFO" "Contacting repo server"
+	nso_list_xml=$(request_url "$url")
+	count=0
+	declare -a vers
+	current_version=""
+	print_msg "INFO" "Processing version data..."
+	while read_dom; do
+		if [[ $ENTITY == "a href="* ]]; then
+			if [ "${CONTENT/\//}" != "HEAD" ] && [ "${CONTENT/\//}" != "Parent Directory" ] && [[ "${CONTENT/\//}" != *"doc"* ]]; then
+				version=${CONTENT/\//}
+				prefix="n.*-"
+				suffix="\.[a-z]*\..*\..*\..*"
+				version=$(expr "$version" : "$prefix\(.*\)$suffix")
+				print_msg "DEBUG" $version : ${CONTENT/\//} : $count : ${vers[$count]}
+				if [ "$version" != "${vers[$count]}" ]; then
+					count=$(( $count + 1 ))
+					vers[$count]=$version
+				fi
+			fi
+		fi
+	done < <(echo "$nso_list_xml")
+	IFS=$'\n' sorted=($(sort <<<"${vers[*]}"))
+	echo " -------  Repository NSO Versions List  -----------------"
+	printf "%s\n" "${sorted[@]}"
+	unset IFS
+#	print_msg "DEBUG" "$nso_list_xml"
+	exit 0
+}
+
 list_available_repo_neds () {
 	get_username
 	get_password
@@ -148,8 +191,6 @@ list_available_repo_neds () {
 		repo_search="?C=N;O=A;P=*$1*"
 	fi
 	local url="$NSO_REPO_NED_DIR/$repo_search"
-#	request_url $url
-	echo "here2"
 	ned_list_xml=$(request_url "$url")
 	echo " -------  Repository NED List  -----------------"
 	while read_dom; do
@@ -164,7 +205,7 @@ list_available_repo_neds () {
 	exit 0
 }
 
-while getopts ":d:r:u:p:v:n:L:sxhl" opt; do
+while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 	case $opt in
 		d) NSO_INSTALL_DIR="$OPTARG"
 		;;
@@ -182,11 +223,15 @@ while getopts ":d:r:u:p:v:n:L:sxhl" opt; do
 		;;
 		x) DISABLE_ENV_PROXY=true
 		;;
+		D) DEBUG=true
+		;;
 		h) print_help 
 		;;
 		l) list_available_repo_neds
 		;;
 		L) list_available_repo_neds "$OPTARG"
+		;;
+		V) list_available_nso_versions
 		;;
 		\?) 
 			print_error "Invalid option -$OPTARG" "show_help"
@@ -194,6 +239,7 @@ while getopts ":d:r:u:p:v:n:L:sxhl" opt; do
 	esac
 done
 
+get_username
 get_password
 
 PASSWORD_ECHO="(hidden)"
@@ -219,6 +265,9 @@ if [ "$LINUX_VERSION" == "linux" ]; then
     fi
 elif [ "$LINUX_VERSION" == "darwin" ]; then
 	DISTRO="macos"
+	SKIP_OS="true"
+else
+	print_msg "INFO" "Support for OS update not available for $DISTRO distro"
 fi
 
 echo "-----  Install Configuration -------------------"
@@ -253,7 +302,7 @@ fi
 
 if [ "$SKIP_OS" == "true" ]; then
 	print_msg "INFO" "Skipping OS update check"
-elif [ "$DISTRO" == 'centos' ]; then
+else
 	yum update -y
 	yum install -y ant perl wget net-tools zlib-dev openssl-devel sqlite-devel bzip2-devel python-devel
 	yum -y groupinstall "Development tools"
@@ -263,8 +312,6 @@ elif [ "$DISTRO" == 'centos' ]; then
 		/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
 		/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
 	fi
-else
-	print_msg "INFO" "Support for OS update not available for $DISTRO"
 fi
 
 if [ -e $NSO_INSTALL_DIR/$NSO_VERSION/VERSION ]; then
@@ -272,9 +319,9 @@ if [ -e $NSO_INSTALL_DIR/$NSO_VERSION/VERSION ]; then
 	NSO_INSTALLED=true
 else
 	print_msg "INFO" "Checking if version ($NSO_BINARY) is available on repo server"
-	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/ncs/$NSO_BINARY"
+	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
-		print_error "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/ncs/$NSO_BINARY"
+		print_error "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	fi
 fi
 
@@ -310,9 +357,9 @@ fi
 for ned in "${NEDS[@]}"; do
 	NED_DOWNLOAD_FILE=""
 	print_msg "INFO" "Checking if $ned NED is available on Repo server"
-	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/ncs-pkgs/$ned"
+	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned"
 	if ! curl --output /dev/null --silent --head --fail $url; then
-		print_msg "WARNING" "NED $ned at location ($NSO_BINARY_REPO_URL/ncs-pkgs/$ned) does not exist on repo server"
+		print_msg "WARNING" "NED $ned at location ($NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned) does not exist on repo server"
 		print_msg "WARNING" "Skipping this NED"
 	else
 		print_msg "INFO" "NED: $ned exists on Repo server"
@@ -351,7 +398,7 @@ for ned in "${NEDS[@]}"; do
 			if [ -e $NSO_NED_REPOSITORY/$NSO_VERSION/$NED_FILE_VERSION.tar.gz ]; then
 				print_msg "INFO" "NED $ned ($NED_FILE_VERSION) for NSO version $NSO_VERSION already installed in $NSO_NED_REPOSITORY/$NSO_VERSION"
 			else
-				url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/ncs-pkgs/$ned/$NED_DOWNLOAD_VERSION/$NED_DOWNLOAD_FILE"
+				url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/$NED_DOWNLOAD_VERSION/$NED_DOWNLOAD_FILE"
 				echo $url
 				if [[ $NED_DOWNLOAD_FILE == *"$ned"*"tar.gz"* ]]; then
 					print_msg "INFO" "Downloading NED $ned for NSO version $NSO_VERSION to $NSO_NED_REPOSITORY/$NSO_VERSION"
