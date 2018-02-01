@@ -31,11 +31,11 @@ OPTIONS (The order of the options changes the behavior, best to specify in the o
 [-x] - disable proxy environment variables 
 [-s] - skip install and/or update of required OS packages
 [-n NED-NAME]* - Multiple -n entries to specify the NEDs to download and unpack
+[-D] - print debug statements
+[-h] - print help
 [-l] - list the available NEDs on the repository server
 [-L SEARCH-STRING ] - list the available NEDs on the repository server that have SEARCH-STRING in their name
 [-V] - List available NSO versions
-[-D] - print debug statements
-[-h] - print help
 
 This script will attempt to install the NSO version indicated with the local-install option
 in the directory NSO-INSTALL-BASE-DIR/NSO-VERSION
@@ -111,38 +111,28 @@ get_password () {
 
 request_url () {
 	local url="--silent --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
-	print_msg "DEBUG" "URL: $url"
+#	local url="--verbose --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
+#	print_msg "DEBUG" "URL: $url"
 	echo `curl $url`
 }
 
 get_latest_ned_version () {
 	get_username
 	get_password
-	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/$REPO_URL_SORT")
-	latest_version=1
+	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/")
+	print_msg "DEBUG" "URL: $NSO_REPO_NED_DIR/$1"
+	count=0
+	declare -a vers
 	while read_dom; do
 		if [[ $ENTITY == "a href="*'/"' ]] && [ "${CONTENT/\//}" != "Parent Directory" ]; then
-			ned_version=${CONTENT/\//}
-			i=$((${#latest_version}-1))
-			latest_point="${latest_version:$i:1}"
-			ned_point="${ned_version:$i:1}"
-			if [ "$ned_point" = "" ]; then
-				ned_point=0
-			fi
-			if [ "$ned_point" -gt "$latest_point" ]; then
-				latest_version=$ned_version
-			elif [ "$ned_point" -eq "$latest_point" ]; then
-				if [ ${#ned_version} -gt ${#latest_version} ]; then
-					latest_version=$ned_version
-				else
-					break
-				fi
-			else
-				break
-			fi
+			vers[$count]=${CONTENT/\//}
+			print_msg "DEBUG" ${vers[$count]}
+			count=$(( $count + 1 ))
 		fi
 	done < <(echo "$version_list")
-	ned_version=$latest_version
+	IFS=$'\n' sorted=($(sort <<<"${vers[*]}"))
+	ned_version=${sorted[${#sorted[@]} - 1]}
+	unset IFS
 }
 
 list_available_nso_versions () {
