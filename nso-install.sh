@@ -1,10 +1,12 @@
 #!/bin/bash
 
 NSO_BINARY_REPO_URL="https://earth.tail-f.com:8443"
+GENERIC_REPO_DOWNLOAD_OPTIONS="--insecure"
+BOX_REPO_DOWNLOAD_OPTIONS="--list-only --disable-epsv --ftp-skip-pasv-ip --ftp-ssl"
 NSO_REPO_BINARY_DIR="ncs"
 NSO_REPO_NED_DIR="ncs-pkgs"
-JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/8u144-b01/090f390dda5b47b9b721c7dfaa008135/jdk-8u144-linux-x64.rpm'
-JAVA_VERSION='jdk1.8.0_144'
+JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/9.0.4+11/c2514751926b4512b076cc82f959763f/jdk-9.0.4_linux-x64_bin.rpm'
+JAVA_VERSION='jdk-9.0.4'
 REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
@@ -92,6 +94,7 @@ get_username () {
 			fi
 		done
 	fi
+	print_msg "DEBUG" "username set"
 }
 
 get_password () {
@@ -107,18 +110,20 @@ get_password () {
 			fi
 		done
 	fi
+	print_msg "DEBUG" "password set"
 }
 
 request_url () {
-	local url="--silent --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
+#	local url="--silent --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
 #	local url="--verbose --insecure --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
-#	print_msg "DEBUG" "URL: $url"
+#	local url="--verbose --disable-epsv --ftp-skip-pasv-ip --ftp-ssl --user $REPO_USERNAME:"$REPO_PASSWORD"  $NSO_BINARY_REPO_URL/$1"
+	local url="$REPO_DOWNLOAD_OPTIONS --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$1"
+	print_msg "DEBUG" "URL: $url"
 	echo `curl $url`
 }
 
 get_latest_ned_version () {
-	get_username
-	get_password
+	initialize
 	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/")
 	print_msg "DEBUG" "URL: $NSO_REPO_NED_DIR/$1"
 	count=0
@@ -136,15 +141,16 @@ get_latest_ned_version () {
 }
 
 list_available_nso_versions () {
-	get_username
-	get_password
+	initialize
 	local repo_search=""
 	if [ "$1" != "" ]; then
 #		repo_search="?C=N;O=A;P=*$1*"
 		repo_search="?C=N;O=A"
+		repo_search=""
 	fi
 	local url="$NSO_REPO_BINARY_DIR/$repo_search"
 	print_msg "INFO" "Contacting repo server"
+	print_msg "DEBUG" "$REPO_DOWNLOAD_OPTIONS --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$url"
 	nso_list_xml=$(request_url "$url")
 	count=0
 	declare -a vers
@@ -169,13 +175,12 @@ list_available_nso_versions () {
 	echo " -------  Repository NSO Versions List  -----------------"
 	printf "%s\n" "${sorted[@]}"
 	unset IFS
-#	print_msg "DEBUG" "$nso_list_xml"
+	print_msg "DEBUG" "$nso_list_xml"
 	exit 0
 }
 
 list_available_repo_neds () {
-	get_username
-	get_password
+	initialize
 	local repo_search=""
 	if [ "$1" != "" ]; then
 		repo_search="?C=N;O=A;P=*$1*"
@@ -194,6 +199,27 @@ list_available_repo_neds () {
 	done < <(echo "$ned_list_xml")
 	exit 0
 }
+
+initialize () {
+	get_username
+	get_password
+
+	PASSWORD_ECHO="(hidden)"
+	if [ -z "$REPO_PASSWORD" ]; then
+        	PASSWORD_ECHO="(missing)"
+	fi
+	REPO_DOWNLOAD_OPTIONS=$GENERIC_REPO_DOWNLOAD_OPTIONS
+	if [[ $NSO_BINARY_REPO_URL = *"ftp.box.com"* ]]; then
+		REPO_DOWNLOAD_OPTIONS=$BOX_REPO_DOWNLOAD_OPTIONS
+		if [[ "$DEBUG" == "true" ]]; then
+			REPO_DOWNLOAD_OPTIONS="--verbose $REPO_DOWNLOAD_OPTIONS"
+		else 
+			REPO_DOWNLOAD_OPTIONS="$REPO_DOWNLOAD_OPTIONS"
+		fi
+	fi
+	print_msg "DEBUG" "Repo Options: $REPO_DOWNLOAD_OPTIONS"
+}
+
 
 while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 	case $opt in
@@ -229,13 +255,7 @@ while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 	esac
 done
 
-get_username
-get_password
-
-PASSWORD_ECHO="(hidden)"
-if [ -z "$REPO_PASSWORD" ];
-	then PASSWORD_ECHO="(missing)"
-fi
+initialize
 
 LINUX_VERSION="$( uname | tr '[:upper:]' '[:lower:]' )"
 NSO_BINARY="nso-$NSO_VERSION.$LINUX_VERSION.x86_64.installer.bin"
@@ -297,9 +317,15 @@ else
 	yum install -y ant perl wget net-tools zlib-dev openssl-devel sqlite-devel bzip2-devel python-devel
 	yum -y groupinstall "Development tools"
 	if [ ! -e /usr/java/$JAVA_VERSION/bin/java ]; then
-		curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" -x http://proxy.esl.cisco.com:80 $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+		if [ ! -e $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm ]; then
+			if [ "$DISABLE_ENV_PROXY" == "false" ]; then
+				curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" -x http://proxy.esl.cisco.com:80 $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+			else
+				curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+			fi
+		fi
 		rpm -ihv $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
-		/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
+		/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java 100
 		/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
 	fi
 fi
@@ -307,7 +333,7 @@ fi
 if [ -e $NSO_INSTALL_DIR/$NSO_VERSION/VERSION ]; then
 	print_msg "INFO" "NSO version $NSO_VERSION already installed"
 	NSO_INSTALLED=true
-else
+elif [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
 	print_msg "INFO" "Checking if version ($NSO_BINARY) is available on repo server"
 	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
@@ -323,7 +349,7 @@ if [ "$NSO_INSTALLED" !=  "true" ]; then
 			mkdir $LOCAL_BINARYS_DIR
 		fi
 		curl $nso_binary_url  >> $LOCAL_BINARYS_DIR/$NSO_BINARY
-		chmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
+		cmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
 	else
 		print_msg "INFO" "NSO Binary file exist"
 	fi
