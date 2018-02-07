@@ -10,13 +10,13 @@
 
 NSO_CLI=ncs_cli -u admin
 
-.PHONY: simall simclean simbuild simnetworkclean simnetworkbuild simdirs simstart simload simstop
+.PHONY: simall simclean simbuild simnetworkclean simnetworkbuild simdirs simstart simload simstop simprojectupdate
 
 simall: simstop simclean simbuild simload
 
 simclean: stop clean simnetworkclean simdirsclean
 
-simbuild: simnetworkbuild all
+simbuild: simnetworkbuild simprojectupdate all
 
 
 
@@ -52,6 +52,8 @@ simnetworkclean:
 # 4. Outputs a load_merge xml file of the devices in the INIT_DATA_DIR variable directory
 simnetworkbuild: simdirsbuild
 	echo "info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Setting up simulated network devices..."; \
+	devicecount=0; \
+	simdevicecount=0; \
 	networkcreated="false"; \
 	for devicetype in $(DEVICES); do \
 		echo "devicetype: $$devicetype"; \
@@ -59,32 +61,40 @@ simnetworkbuild: simdirsbuild
 		name="$${devicearray[0]}"; \
 		count=$${devicearray[1]}; \
 		ned=$${devicearray[2]}; \
-		echo "NED: $$name $$ned $$count"; \
+		type=$${devicearray[3]}; \
+		echo "NED: $$name $$ned $$count $$type"; \
+		devicecount=$$(($$devicecount + $$count)); \
+		if [ "$$type" = "sim" ]; then \
+			simdevicecount=$$(($$simdevicecount + $$count)); \
+		fi; \
 		if [ -z $$count ]; then \
 			count=-1; \
 		fi; \
-		echo "NED: $$name $$ned $$count"; \
 		nedfileordir=$$(ls -d $(NSO_NEDS)/*-$$ned-*.tar.gz | head -n 1); \
 		nedfilename=$$(basename $$nedfileordir); \
 		echo "$$ned Ned File $$nedfileordir"; \
 		if [[ ! -d $(PROJECT_PACKAGES)/$$nedfilename && ! -h $(PROJECT_PACKAGES)/$$nedfilename && -f $$nedfileordir ]]; then \
 			echo "Creating link to NED ($$ned) in $(PROJECT_PACKAGES)"; ln -s $$nedfileordir $(PROJECT_PACKAGES); \
 		fi; \
-		echo "count $$count"; \
-		if [[ $$count > 0 ]]; then \
+		if [[ $$count -gt 0 ]]; then \
 			echo "Network State: $$networkcreated"; \
-			if [ $$networkcreated = "false" ]; then \
-				if [ $$count = 1 ]; then echo "Create Device"; $(NETSIM) create-device $$nedfileordir $$name; \
-				elif [ $$count > 1 ]; then echo "Create Network"; $(NETSIM) create-network $$nedfileordir $$count $$name; \
+			if [ "$$networkcreated" = "false" ]; then \
+				if [ "$$count" -eq 1 ]; then echo "Create Device"; $(NETSIM) create-device $$nedfileordir $$name; \
+				elif [ "$$count" -gt 1 ]; then echo "Create Network"; $(NETSIM) create-network $$nedfileordir $$count $$name; \
 				fi; \
 				networkcreated="true"; \
 			else \
-				if [ $$count = 1 ]; then echo "Add Device"; $(NETSIM) add-device $$nedfileordir $$name; \
-				elif [ $$count > 1 ]; then echo "Add to Network"; $(NETSIM) add-to-network $$nedfileordir $$count $$name; fi; \
+				if [ "$$count" -eq 1 ]; then echo "Add Device"; $(NETSIM) add-device $$nedfileordir $$name; \
+				elif [ "$$count" -gt 1 ]; then echo "Add to Network"; $(NETSIM) add-to-network $$nedfileordir $$count $$name; fi; \
 			fi; \
 		fi; \
-	done
-	$(NETSIM) ncs-xml-init > $(INIT_DATA_DIR)/simdevices.xml
+	done; \
+	echo "Total Device Count: $$devicecount"; \
+	echo "Simulated Device Count: $$simdevicecount"; \
+	if [ "$$devicecount" -gt 0 ]; then \
+		echo "here"; \
+		$(NETSIM) ncs-xml-init > $(INIT_DATA_DIR)/simdevices.xml; \
+	fi
 
 #simloaddevices: simdirs
 #	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Loading devices)
@@ -108,11 +118,15 @@ simload: simstart
 simstart:
 	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Starting the environment)
 	ncs;
-	$(NETSIM) start
-	for device in $$(ncs-netsim list | grep name | cut -d " " -f1 | cut -d "=" -f2); do \
-		echo "device: $$device"; \
-		sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.5 | $(NSO_CLI); \
-	done; \
+	simdevicecount=`ls -l netsim | wc -l`; \
+	simdevicecount=$$(($$simdevicecount - 1)); \
+	if [ "$$simdevicecount" -gt 0 ]; then \
+		$(NETSIM) start; \
+		for device in $$(ncs-netsim list | grep name | cut -d " " -f1 | cut -d "=" -f2); do \
+			echo "device: $$device"; \
+			sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.5 | $(NSO_CLI); \
+		done; \
+	fi
 	echo "show devices brief" | $(NSO_CLI);
 
 simdirsbuild:
@@ -124,3 +138,6 @@ simdirsclean:
 	(for DIR in $(NSO_DIRS); do \
 		if [[ -d $${DIR} ]]; then rm -rf $${DIR}; fi; \
 	done)
+
+simprojectupdate:
+	ncs-project update -y

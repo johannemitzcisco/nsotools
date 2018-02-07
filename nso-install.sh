@@ -3,8 +3,8 @@
 NSO_BINARY_REPO_URL="https://earth.tail-f.com:8443"
 NSO_REPO_BINARY_DIR="ncs"
 NSO_REPO_NED_DIR="ncs-pkgs"
-JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/8u144-b01/090f390dda5b47b9b721c7dfaa008135/jdk-8u144-linux-x64.rpm'
-JAVA_VERSION='jdk1.8.0_144'
+JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/9.0.4+11/c2514751926b4512b076cc82f959763f/jdk-9.0.4_linux-x64_bin.rpm'
+JAVA_VERSION='jdk9.0.4'
 REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
@@ -297,7 +297,7 @@ else
 	yum install -y ant perl wget net-tools zlib-dev openssl-devel sqlite-devel bzip2-devel python-devel
 	yum -y groupinstall "Development tools"
 	if [ ! -e /usr/java/$JAVA_VERSION/bin/java ]; then
-		curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" -x http://proxy.esl.cisco.com:80 $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
+		curl -v -j -k -L -H "Cookie: oraclelicense=accept-securebackup-cookie" $JAVA_RPM_URL >> $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
 		rpm -ihv $LOCAL_BINARYS_DIR/$JAVA_VERSION-linux-x64.rpm
 		/usr/sbin/alternatives --install /usr/bin/java java /usr/java/$JAVA_VERSION/bin/java
 		/usr/sbin/alternatives --set java /usr/java/$JAVA_VERSION/jre/bin/java
@@ -311,7 +311,7 @@ else
 	print_msg "INFO" "Checking if version ($NSO_BINARY) is available on repo server"
 	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
-		print_error "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
+		print_msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST" "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	fi
 fi
 
