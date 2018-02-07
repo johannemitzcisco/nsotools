@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NSO_BINARY_REPO_URL="https://earth.tail-f.com:8443"
-GENERIC_REPO_DOWNLOAD_OPTIONS="--insecure"
+GENERIC_REPO_DOWNLOAD_OPTIONS="--insecure --silent"
 BOX_REPO_DOWNLOAD_OPTIONS="--list-only --disable-epsv --ftp-skip-pasv-ip --ftp-ssl"
 NSO_REPO_BINARY_DIR="ncs"
 NSO_REPO_NED_DIR="ncs-pkgs"
@@ -146,7 +146,7 @@ list_available_nso_versions () {
 	if [ "$1" != "" ]; then
 #		repo_search="?C=N;O=A;P=*$1*"
 		repo_search="?C=N;O=A"
-		repo_search=""
+#		repo_search=""
 	fi
 	local url="$NSO_REPO_BINARY_DIR/$repo_search"
 	print_msg "INFO" "Contacting repo server"
@@ -218,6 +218,11 @@ initialize () {
 		fi
 	fi
 	print_msg "DEBUG" "Repo Options: $REPO_DOWNLOAD_OPTIONS"
+	local url="--user $REPO_USERNAME:"$REPO_PASSWORD" $GENERIC_REPO_DOWNLOAD_OPTIONS -o /dev/null -I -w %{http_code} $NSO_BINARY_REPO_URL"
+	local testcreds=`curl $url`
+	if [ $testcreds != "200" ]; then
+		print_msg "WARNING" "Could not contact repo server ($NSO_BINARY_REPO_URL) with the credentials supplied"
+	fi
 }
 
 
