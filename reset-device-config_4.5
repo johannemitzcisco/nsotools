@@ -1,6 +1,7 @@
 request devices device {DEVICE} sync-from
 config
-request devices device {DEVICE} delete-config
-request devices device {DEVICE} sync-to
+delete devices device {DEVICE} config
+set devices device {DEVICE} config ios:tailfned police cirmode
 commit
+request devices device {DEVICE} sync-to
 exit
