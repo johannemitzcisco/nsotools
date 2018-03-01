@@ -122,6 +122,15 @@ request_url () {
 	echo `curl $url`
 }
 
+finalize () {
+	if [ "$DISABLE_ENV_PROXY" == "true" ]; then
+		http_proxy=$_http_proxy
+		https_proxy=$_https_proxy
+		HTTP_PROXY=$_HTTP_PROXY
+		HTTPs_PROXY=$_HTTPS_PROXY
+	fi
+}
+
 get_latest_ned_version () {
 	initialize
 	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/")
@@ -176,6 +185,7 @@ list_available_nso_versions () {
 	printf "%s\n" "${sorted[@]}"
 	unset IFS
 	print_msg "DEBUG" "$nso_list_xml"
+	finalize
 	exit 0
 }
 
@@ -197,12 +207,24 @@ list_available_repo_neds () {
 			fi
 		fi
 	done < <(echo "$ned_list_xml")
+	finalize
 	exit 0
 }
 
 initialize () {
 	get_username
 	get_password
+
+	if [ "$DISABLE_ENV_PROXY" == "true" ]; then
+		_http_proxy=$http_proxy
+		_https_proxy=$https_proxy
+		_HTTP_PROXY=$HTTP_PROXY
+		_HTTPs_PROXY=$HTTPS_PROXY
+		unset http_proxy
+		unset https_proxy
+		unset HTTP_PROXY
+		unset HTTPS_PROXY
+	fi
 
 	PASSWORD_ECHO="(hidden)"
 	if [ -z "$REPO_PASSWORD" ]; then
@@ -224,7 +246,6 @@ initialize () {
 		print_msg "WARNING" "Could not contact repo server ($NSO_BINARY_REPO_URL) with the credentials supplied"
 	fi
 }
-
 
 while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 	case $opt in
@@ -271,7 +292,7 @@ if [ "$LINUX_VERSION" == "linux" ]; then
     # If available, use LSB to identify distribution
     if [ -f /etc/lsb-release -o -d /etc/lsb-release.d ]; then
         DISTRO_TEMP=$(lsb_release -i | cut -d: -f2 | sed s/'^\t'//)
-    # Otherwise, use release info file
+   # Otherwise, use release info file
     else
         DISTRO_TEMP=$(ls -d /etc/[A-Za-z]*[_-][rv]e[lr]* | grep -v "lsb" | cut -d'/' -f3 | cut -d'-' -f1 | cut -d'_' -f1)
 	if [[ $DISTRO_TEMP == *"centos"* ]]; then
@@ -303,16 +324,6 @@ if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ] || [ -z "$NSO_
 fi
 if [ "$DISTRO" == 'unknown' ]; then
 	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
-fi
-if [ "$DISABLE_ENV_PROXY" == "true" ]; then
-	_http_proxy=$http_proxy
-	_https_proxy=$https_proxy
-	_HTTP_PROXY=$HTTP_PROXY
-	_HTTPs_PROXY=$HTTPS_PROXY
-	unset http_proxy
-	unset https_proxy
-	unset HTTP_PROXY
-	unset HTTPS_PROXY
 fi
 
 if [ "$SKIP_OS" == "true" ]; then
@@ -351,7 +362,7 @@ if [ "$NSO_INSTALLED" !=  "true" ]; then
 		print_msg "INFO" "NSO Binary file does not exist locally, downloading..."
 		if [ ! -d $LOCAL_BINARYS_DIR ]; then 
 			print_msg "INFO" "Creating $LOCAL_BINARYS_DIR"
-			mkdir $LOCAL_BINARYS_DIR
+			mkdir -p $LOCAL_BINARYS_DIR
 		fi
 		curl $nso_binary_url  >> $LOCAL_BINARYS_DIR/$NSO_BINARY
 		cmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
@@ -361,18 +372,19 @@ if [ "$NSO_INSTALLED" !=  "true" ]; then
 	print_msg "INFO" "Performing NSO Local install to $NSO_INSTALL_DIR/$NSO_VERSION"
 	if [ ! -d $NSO_INSTALL_DIR ]; then 
 		print_msg "INFO" "Creating $NSO_INSTALL_DIR"
-		mkdir $NSO_INSTALL_DIR
+		mkdir -p $NSO_INSTALL_DIR
 	fi
+	chmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
 	$LOCAL_BINARYS_DIR/$NSO_BINARY --local-install $NSO_INSTALL_DIR/$NSO_VERSION
 fi
 
 if [ ! -d $NSO_NED_REPOSITORY ]; then 
 	print_msg "INFO" "Creating $NSO_NED_REPOSITORY"
-	mkdir $NSO_NED_REPOSITORY
+	mkdir -p $NSO_NED_REPOSITORY
 fi
 if [ ! -d $NSO_NED_REPOSITORY/$NSO_VERSION ]; then 
 	print_msg "INFO" "Creating $NSO_NED_REPOSITORY/$NSO_VERSION"
-	mkdir $NSO_NED_REPOSITORY/$NSO_VERSION
+	mkdir -p $NSO_NED_REPOSITORY/$NSO_VERSION
 fi
 
 for ned in "${NEDS[@]}"; do
@@ -436,7 +448,7 @@ for ned in "${NEDS[@]}"; do
 						rm -rf $NSO_INSTALL_DIR/temp
 					fi
 					print_msg "INFO" "Unpacking NED to $NSO_INSTALL_DIR"/temp
-					mkdir $NSO_INSTALL_DIR/temp
+					mkdir -p $NSO_INSTALL_DIR/temp
 					cp $LOCAL_BINARYS_DIR/$NED_DOWNLOAD_FILE $NSO_INSTALL_DIR/temp/$NED_DOWNLOAD_FILE
 					( cd $NSO_INSTALL_DIR/temp; eval ./$NED_DOWNLOAD_FILE; echo "Copying NED ($NED_FILE_VERSION.tar.gz) to $NSO_NED_REPOSITORY/$NSO_VERSION"; cp $NSO_INSTALL_DIR/temp/$NED_FILE_VERSION.tar.gz $NSO_NED_REPOSITORY/$NSO_VERSION )
 					rm -rf $NSO_INSTALL_DIR/temp
@@ -446,12 +458,7 @@ for ned in "${NEDS[@]}"; do
 	fi
 done
 
-if [ "$DISABLE_ENV_PROXY" == "true" ]; then
-	http_proxy=$_http_proxy
-	https_proxy=$_https_proxy
-	HTTP_PROXY=$_HTTP_PROXY
-	HTTPs_PROXY=$_HTTPS_PROXY
-fi
+finalize
 
 print_msg "INFO" "Install Complete"
 
