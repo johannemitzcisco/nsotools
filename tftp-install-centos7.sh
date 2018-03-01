@@ -21,8 +21,10 @@ service tftp
 }
 EOL
 if [ -z /var/lib/tftpboot ]; then mkdir /var/lib/tftpboot; fi
+if [ -z /var/lib/tftpboot/configurations ]; then mkdir /var/lib/tftpboot/configurations; fi
+if [ -z /var/lib/tftpboot/scripts ]; then mkdir /var/lib/tftpboot/scripts; fi
 chmod 777 /var/lib/tftpboot
-#iptables -I INPUT -p udp –dport 69 -j ACCEPT
+iptables -I INPUT -j ACCEPT -p udp -m udp --dport 69
 systemctl start xinetd
 systemctl start tftp
 systemctl enable xinetd
