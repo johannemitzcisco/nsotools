@@ -8,6 +8,9 @@ NSO_REPO_NED_DIR="ncs-pkgs"
 JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/9.0.4+11/c2514751926b4512b076cc82f959763f/jdk-9.0.4_linux-x64_bin.rpm'
 JAVA_VERSION='jdk-9.0.4'
 REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
+NSO_LOCAL_NEDS_DIR="neds"
+NSO_LOCAL_BINARIES="binaries"
+NSO_LOCAL_NSOVERS="nso-versions"
 NSO_INSTALL_DIR="(missing)"
 REPO_USERNAME="(missing)"
 NSO_VERSION="(missing)"
@@ -346,14 +349,15 @@ else
 	fi
 fi
 
-if [ -e $NSO_INSTALL_DIR/$NSO_VERSION/VERSION ]; then
+if [ -e $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION/VERSION ]; then
 	print_msg "INFO" "NSO version $NSO_VERSION already installed"
 	NSO_INSTALLED=true
 elif [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
 	print_msg "INFO" "Checking if version ($NSO_BINARY) is available on repo server"
 	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
 	if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
-		print_msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST"msg "TEST" "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
+		print_msg "ERROR" "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
+		exit 1
 	fi
 fi
 
@@ -369,13 +373,13 @@ if [ "$NSO_INSTALLED" !=  "true" ]; then
 	else
 		print_msg "INFO" "NSO Binary file exist"
 	fi
-	print_msg "INFO" "Performing NSO Local install to $NSO_INSTALL_DIR/$NSO_VERSION"
-	if [ ! -d $NSO_INSTALL_DIR ]; then 
-		print_msg "INFO" "Creating $NSO_INSTALL_DIR"
-		mkdir -p $NSO_INSTALL_DIR
+	print_msg "INFO" "Performing NSO Local install to $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION"
+	if [ ! -d $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS ]; then 
+		print_msg "INFO" "Creating $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS"
+		mkdir -p $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS
 	fi
 	chmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
-	$LOCAL_BINARYS_DIR/$NSO_BINARY --local-install $NSO_INSTALL_DIR/$NSO_VERSION
+	$LOCAL_BINARYS_DIR/$NSO_BINARY --local-install $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION
 fi
 
 if [ ! -d $NSO_NED_REPOSITORY ]; then 

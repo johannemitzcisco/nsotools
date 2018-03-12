@@ -16,10 +16,7 @@ simall: simstop simclean simbuild simload
 
 simclean: stop clean simnetworkclean simdirsclean
 
-simbuild: simnetworkbuild simprojectupdate all
-
-
-
+simbuild: simnetworkbuild simlinklocalpackages simprojectupdate all
 
 # This does the following:
 # 1. Deletes the netsim network devices if the netsim directory exists
@@ -70,7 +67,7 @@ simnetworkbuild: simdirsbuild
 		if [ -z $$count ]; then \
 			count=-1; \
 		fi; \
-		nedfileordir=$$(ls -d $(NSO_NEDS)/*-$$ned-*.tar.gz | head -n 1); \
+		nedfileordir=$$(ls -dt $(NSO_NEDS)/*-$$ned-*.tar.gz | head -n 1); \
 		nedfilename=$$(basename $$nedfileordir); \
 		echo "$$ned Ned File $$nedfileordir"; \
 		if [[ ! -d $(PROJECT_PACKAGES)/$$nedfilename && ! -h $(PROJECT_PACKAGES)/$$nedfilename && -f $$nedfileordir ]]; then \
@@ -117,14 +114,20 @@ simload: simstart
 #simstart: simdirsbuild start
 simstart:
 	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Starting the environment)
-	ncs;
+	ncs_running=`ncs --status | grep running: | wc -l | sed -e 's/^[[:space:]]*//'`; \
+	if [ "$$ncs_running" -ne 1 ]; then \
+		ncs; \
+	fi
 	simdevicecount=`ls -l netsim | wc -l`; \
 	simdevicecount=$$(($$simdevicecount - 1)); \
 	if [ "$$simdevicecount" -gt 0 ]; then \
-		$(NETSIM) start; \
 		for device in $$(ncs-netsim list | grep name | cut -d " " -f1 | cut -d "=" -f2); do \
-			echo "device: $$device"; \
-			sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.5 | $(NSO_CLI); \
+			netsim_running=`ncs-netsim status $$device | grep running: | wc -l | sed -e 's/^[[:space:]]*//'`; \
+			if [ "$$netsim_running" -ne 1 ]; then \
+				$(NETSIM) start $$device; \
+			fi; \
+			echo "Resetting device: $$device"; \
+			sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.6 | $(NSO_CLI); \
 		done; \
 	fi
 	echo "show devices brief" | $(NSO_CLI);
@@ -141,3 +144,9 @@ simdirsclean:
 
 simprojectupdate:
 	ncs-project update -y
+
+simlinklocalpackages:
+	(for PACKAGE in $(LOCAL_PACKAGES); do \
+		if [[ ! -L $(PROJECT_PACKAGES)/$${PACKAGE} ]]; then ln -s $(LOCAL_PACKAGES_DIR)/$${PACKAGE} $(PROJECT_PACKAGES)/$${PACKAGE}; fi; \
+	done)
+

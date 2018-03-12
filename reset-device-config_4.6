@@ -1,0 +1,6 @@
+request devices device {DEVICE} sync-from
+config
+delete devices device {DEVICE} config
+commit
+request devices device {DEVICE} sync-to
+exit
