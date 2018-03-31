@@ -305,8 +305,10 @@ if [ "$LINUX_VERSION" == "linux" ]; then
 elif [ "$LINUX_VERSION" == "darwin" ]; then
 	DISTRO="macos"
 	SKIP_OS="true"
+elif [ "$SKIP_OS" == "true" ]; then
+	print_msg "WARNING" "You have selected skip OS so this might work, we'll give it a try.  Good Luck!"
 else
-	print_msg "INFO" "Support for OS update not available for $DISTRO distro"
+	print_msg "INFO" "Support for OS update not available for $DISTRO distro, try using the -s option, you never know!"
 fi
 
 echo "-----  Install Configuration -------------------"
@@ -394,8 +396,9 @@ fi
 for ned in "${NEDS[@]}"; do
 	NED_DOWNLOAD_FILE=""
 	print_msg "INFO" "Checking if $ned NED is available on Repo server"
-	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned"
-	if ! curl --output /dev/null --silent --head --fail $url; then
+	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/"
+	print_msg "DEBUG" "$url"
+        if ! curl --output /dev/null --silent --head --fail $url; then
 		print_msg "WARNING" "NED $ned at location ($NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned) does not exist on repo server"
 		print_msg "WARNING" "Skipping this NED"
 	else
