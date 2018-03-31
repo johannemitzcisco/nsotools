@@ -327,7 +327,7 @@ echo ""
 if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ] || [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
 	print_error "Please enter missing information" show_help
 fi
-if [ "$DISTRO" == 'unknown' ]; then
+if [ "$DISTRO" == 'unknown' && "$SKIP_OS" == "true" ]; then
 	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
 fi
 
