@@ -215,6 +215,9 @@ list_available_repo_neds () {
 }
 
 initialize () {
+	if [ "$INITIALIZED" == "true" ]; then
+		return
+	fi
 	get_username
 	get_password
 
@@ -248,6 +251,7 @@ initialize () {
 	if [ $testcreds != "200" ]; then
 		print_msg "WARNING" "Could not contact repo server ($NSO_BINARY_REPO_URL) with the credentials supplied"
 	fi
+	INITIALIZED=true
 }
 
 while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
@@ -284,7 +288,12 @@ while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 	esac
 done
 
-initialize
+if [ -e $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION/VERSION ]; then
+	print_msg "INFO" "NSO version $NSO_VERSION already installed"
+	NSO_INSTALLED=true
+elif [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
+	initialize
+fi
 
 LINUX_VERSION="$( uname | tr '[:upper:]' '[:lower:]' )"
 NSO_BINARY="nso-$NSO_VERSION.$LINUX_VERSION.x86_64.installer.bin"
@@ -324,8 +333,13 @@ printf "Skip OS Update: %s\n" "$SKIP_OS"
 printf "Disable Envronment Proxy Configuration: %s\n" "$DISABLE_ENV_PROXY"
 echo ""
 
-if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ] || [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
-	print_error "Please enter missing information" show_help
+if [[ ("$NSO_INSTALLED" != "true" && ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ) || "${#NEDS[@]}" > 0 ]]; then
+	if [ -z "$REPO_PASSWORD" ] || [ "$REPO_USERNAME" == "(missing)" ]; then
+		print_error "Please enter missing information (Username and/or Password)" show_help
+	fi
+fi
+if [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
+		print_error "Please enter missing information (Version and/or Install Directory)" show_help
 fi
 if [ "$DISTRO" == 'unknown' && "$SKIP_OS" == "true" ]; then
 	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
@@ -351,24 +365,17 @@ else
 	fi
 fi
 
-if [ -e $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION/VERSION ]; then
-	print_msg "INFO" "NSO version $NSO_VERSION already installed"
-	NSO_INSTALLED=true
-elif [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
-	print_msg "INFO" "Checking if version ($NSO_BINARY) is available on repo server"
-	nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
-	if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
-		print_msg "ERROR" "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
-		exit 1
-	fi
-fi
-
 if [ "$NSO_INSTALLED" !=  "true" ]; then
 	if [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
 		print_msg "INFO" "NSO Binary file does not exist locally, downloading..."
 		if [ ! -d $LOCAL_BINARYS_DIR ]; then 
 			print_msg "INFO" "Creating $LOCAL_BINARYS_DIR"
 			mkdir -p $LOCAL_BINARYS_DIR
+		fi
+		nso_binary_url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
+		if ! curl --silent --output /dev/null --head --fail $nso_binary_url; then
+			print_msg "ERROR" "Version is not valid on repo, File does not exist: $NSO_BINARY_REPO_URL/$NSO_REPO_BINARY_DIR/$NSO_BINARY"
+			exit 1
 		fi
 		curl $nso_binary_url  >> $LOCAL_BINARYS_DIR/$NSO_BINARY
 		cmod a+x $LOCAL_BINARYS_DIR/$NSO_BINARY
@@ -394,6 +401,7 @@ if [ ! -d $NSO_NED_REPOSITORY/$NSO_VERSION ]; then
 fi
 
 for ned in "${NEDS[@]}"; do
+	initialize
 	NED_DOWNLOAD_FILE=""
 	print_msg "INFO" "Checking if $ned NED is available on Repo server"
 	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/"
