@@ -11,9 +11,9 @@
 NSO_CLI=ncs_cli -u admin
 
 .PHONY: simall simstop simclean simbuild simload stop clean simnetworkclean simdirsclean simnetworkbuild simlinklocalpackages simprojectupdate simruninstallers all
-simall: simstop simclean simbuild simload
+simall: simclean simbuild simload
 
-simclean: stop clean simnetworkclean simdirsclean
+simclean: simstop simnetworkclean simdirsclean
 
 simbuild: simnetworkbuild simlinklocalpackages simprojectupdate simruninstallers all
 
@@ -21,9 +21,7 @@ simbuild: simnetworkbuild simlinklocalpackages simprojectupdate simruninstallers
 # 1. Deletes the netsim network devices if the netsim directory exists
 # 2. Removes any NEDs that are specified in the DEVICES variable
 simnetworkclean:
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>> "; \
-	echo " Cleaning Netsim"; \
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>> "; \
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Cleaning Netsim  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	if [ -d $(NETSIM_DIR) ]; then $(NETSIM) delete-network; fi; \
 	for devicetype in $(DEVICES); do \
 		echo "devicetype: $$devicetype"; \
@@ -49,9 +47,7 @@ simnetworkclean:
 # 3. Creates a symbolic link to the latest version of the ned in the NEDS_DIR variable directory using
 # 4. Outputs a load_merge xml file of the devices in the INIT_DATA_DIR variable directory
 simnetworkbuild: simdirsbuild
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"; \
-	echo "Setting up simulated network devices"; \
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"; \
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Setting up simulated network devices <<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	devicecount=0; \
 	simdevicecount=0; \
 	networkcreated="false"; \
@@ -97,14 +93,12 @@ simnetworkbuild: simdirsbuild
 	fi
 
 simstop:
-	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Stopping the Environment)
-	$(NETSIM) stop || true
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Stopping the Environment <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
+	if [[ -d $(NETSIM_DIR) ]]; then $(NETSIM) stop || true; fi; \
 	ncs --stop || true
 
 simload: simstart
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"; \
-	echo "Loading Data"; \
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>"; \
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Loading Data <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	for data_load_dir in $(NSO_POST_START_DATA_DIR); do \
 		echo "Load Directory: $$data_load_dir"; \
 		for loadfile in $$(ls $$data_load_dir/*.xml  2> /dev/null); do \
@@ -116,7 +110,7 @@ simload: simstart
 	echo "request devices sync-from" | $(NSO_CLI)
 
 simstart: 
-	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Starting the environment)
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Starting the environment <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	ncs_running=`ncs --status | grep running: | wc -l | sed -e 's/^[[:space:]]*//'`; \
 	if [ "$$ncs_running" -ne 1 ]; then \
 		ncs; \
@@ -137,30 +131,36 @@ simstart:
 
 # Make all NSO_DIRS directories
 simdirsbuild:
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Creating Directories <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	(for DIR in $(NSO_DIRS); do \
 		if [[ ! -d $${DIR} ]]; then mkdir $${DIR}; fi; \
 	done)
+	if [[ ! -d $(PROJECT_PACKAGES) ]]; then mkdir $(PROJECT_PACKAGES); fi; \
 
 # Delete all NSO_DIRS directories
 simdirsclean:
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Cleaning Directories  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	(for DIR in $(NSO_DIRS); do \
 		if [[ -d $${DIR} ]]; then rm -rf $${DIR}; fi; \
 	done)
-	find $(PROJECT_PACKAGES) -type l -delete
+	if [[ -d $(PROJECT_PACKAGES) ]]; then find $(PROJECT_PACKAGES) -type l -delete; fi; \
 
 # If the project-meta-data.xml file has been updated to reflect local packages that need to be compiled
 # this will make sure that the associate setup.mk file is updated before the project is built
 simprojectupdate:
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Updating Project <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	ncs-project update -y
 
 # Create symbolic links into the PROJECT_PACKAGES directory for packages listed in the LOCAL_PACKAGES
 simlinklocalpackages:
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Linking Local Packages  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	(for PACKAGE in $(LOCAL_PACKAGES); do \
 		ln -s $(LOCAL_PACKAGES_DIR)/$${PACKAGE} $(PROJECT_PACKAGES)/; \
 	done)
 
 # Run a command, if the command is inside a tar.gz file unpack first to templorary directory
 simruninstallers:
+	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Running Installers  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
 	(for installer in $(FUNC_PACK_INSTALL_CMDS); do \
 		mkdir /tmp/nsoinstallers; \
 		IFS=':'; read -r -a installerarray <<< "$$installer"; \
