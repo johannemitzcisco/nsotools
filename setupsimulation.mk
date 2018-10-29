@@ -124,7 +124,7 @@ simstart:
 				$(NETSIM) start $$device; \
 			fi; \
 			echo "Resetting device: $$device"; \
-			sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.6 | $(NSO_CLI); \
+			sed -e s/{DEVICE}/$$device/g $(NSO_TOOLS_DIR)/reset-device-config_4.5 | $(NSO_CLI); \
 		done; \
 	fi
 	echo "show devices brief" | $(NSO_CLI);
@@ -154,8 +154,21 @@ simprojectupdate:
 # Create symbolic links into the PROJECT_PACKAGES directory for packages listed in the LOCAL_PACKAGES
 simlinklocalpackages:
 	$(info >>>>>>>>>>>>>>>>>>>>>>>>>>>  Linking Local Packages  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<)
+	echo "Packages to link:  $(LOCAL_PACKAGES)"; \
 	(for PACKAGE in $(LOCAL_PACKAGES); do \
-		ln -s $(LOCAL_PACKAGES_DIR)/$${PACKAGE} $(PROJECT_PACKAGES)/; \
+		echo "Attemping to link package $$PACKAGE"; \
+		(for LOCAL_PACKAGE_DIR in $(LOCAL_PACKAGES_DIR); do \
+			echo "$$LOCAL_PACKAGE_DIR/$${PACKAGE}"; \
+			if [[ -d "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" ]]; then \
+				ln -s "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" "$(PROJECT_PACKAGES)/"; \
+				echo "Package $$PACKAGE linked successfully"; \
+				break; \
+			fi; \
+		done); \
+		if [[ ! -d "$(PROJECT_PACKAGES)/$${PACKAGE}" ]]; then \
+			echo $${PACKAGE} not found in any of the specified LOCAL_PACKAGES_DIRs; \
+			exit 1; \
+		fi; \
 	done)
 
 # Run a command, if the command is inside a tar.gz file unpack first to templorary directory

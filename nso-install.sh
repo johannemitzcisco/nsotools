@@ -341,7 +341,7 @@ fi
 if [ -z "$NSO_VERSION" ] || [ "$NSO_INSTALL_DIR" == "(missing)" ]; then
 		print_error "Please enter missing information (Version and/or Install Directory)" show_help
 fi
-if [ "$DISTRO" == 'unknown' && "$SKIP_OS" == "true" ]; then
+if [ "$DISTRO" == 'unknown' ] && [ "$SKIP_OS" == "true" ]; then
 	print_error "$DISTO unsupported by this program.  Only centos and macos supported"
 fi
 
