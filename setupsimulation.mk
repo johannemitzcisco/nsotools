@@ -13,7 +13,7 @@ NSO_CLI=ncs_cli -u admin
 .PHONY: simall simstop simclean simbuild simload stop clean simnetworkclean simdirsclean simnetworkbuild simlinklocalpackages simprojectupdate simruninstallers all
 simall: simclean simbuild simload
 
-simclean: simstop simnetworkclean simdirsclean
+simclean: simstop simnetworkclean simdirsclean 
 
 simbuild: simnetworkbuild simlinklocalpackages simprojectupdate simruninstallers all
 
