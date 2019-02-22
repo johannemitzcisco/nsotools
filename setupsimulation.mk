@@ -159,13 +159,13 @@ simlinklocalpackages:
 		echo "Attemping to link package $$PACKAGE"; \
 		(for LOCAL_PACKAGE_DIR in $(LOCAL_PACKAGES_DIR); do \
 			echo "$$LOCAL_PACKAGE_DIR/$${PACKAGE}"; \
-			if [[ -d "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" ]]; then \
+			if [[ -d "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" ]] || [[ -e "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" ]]; then \
 				ln -s "$${LOCAL_PACKAGE_DIR}/$${PACKAGE}" "$(PROJECT_PACKAGES)/"; \
 				echo "Package $$PACKAGE linked successfully"; \
 				break; \
 			fi; \
 		done); \
-		if [[ ! -d "$(PROJECT_PACKAGES)/$${PACKAGE}" ]]; then \
+		if [[ ! -d "$(PROJECT_PACKAGES)/$${PACKAGE}" ]] && [[ ! -e "$(PROJECT_PACKAGES)/$${PACKAGE}" ]]; then \
 			echo $${PACKAGE} not found in any of the specified LOCAL_PACKAGES_DIRs; \
 			exit 1; \
 		fi; \

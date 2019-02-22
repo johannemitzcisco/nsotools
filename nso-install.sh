@@ -5,8 +5,8 @@ GENERIC_REPO_DOWNLOAD_OPTIONS="--insecure --silent"
 BOX_REPO_DOWNLOAD_OPTIONS="--list-only --disable-epsv --ftp-skip-pasv-ip --ftp-ssl"
 NSO_REPO_BINARY_DIR="ncs"
 NSO_REPO_NED_DIR="ncs-pkgs"
-JAVA_RPM_URL='http://download.oracle.com/otn-pub/java/jdk/9.0.4+11/c2514751926b4512b076cc82f959763f/jdk-9.0.4_linux-x64_bin.rpm'
-JAVA_VERSION='jdk-9.0.4'
+JAVA_RPM_URL='https://download.oracle.com/otn-pub/java/jdk/11.0.1+13/90cf5d8f270a4347a95050320eef3fb7/jdk-11.0.1_linux-x64_bin.rpm'
+JAVA_VERSION='jdk-11.0.1'
 REPO_URL_SORT='?C=M;O=D' # \ escapes for the script
 NSO_LOCAL_NEDS_DIR="neds"
 NSO_LOCAL_BINARIES="binaries"
@@ -289,7 +289,7 @@ while getopts ":d:r:u:p:v:n:L:sxDhlV" opt; do
 done
 
 if [ -e $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION/VERSION ]; then
-	print_msg "INFO" "NSO version $NSO_VERSION already installed"
+	print_msg "INFO" "NSO version $NSO_VERSION already installed at: $NSO_INSTALL_DIR/$NSO_LOCAL_NSOVERS/$NSO_VERSION/VERSION"
 	NSO_INSTALLED=true
 elif [ ! -e $LOCAL_BINARYS_DIR/$NSO_BINARY ]; then
 	initialize
