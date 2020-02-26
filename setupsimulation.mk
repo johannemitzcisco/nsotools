@@ -27,15 +27,17 @@ simnetworkclean:
 		echo "devicetype: $$devicetype"; \
 		IFS=':'; read -r -a devicearray <<< "$$devicetype"; \
 		ned=$${devicearray[2]}; \
+                ned=$$(find $(PROJECT_PACKAGES) -regextype sed -regex ".*[1-9][0-9]*-$$ned-[1-9][0-9]*.*"); \
+                ned=$${ned##*/}; \
 		echo "Looking for $$ned NED to remove"; \
 		if [ ! -z $$ned ]; then \
-			nedfileordir=$$(ls -d $(PROJECT_PACKAGES)/*-$$ned-* 2> /dev/null | head -n 1); \
+			nedfileordir=$$(ls -d $(PROJECT_PACKAGES)/$$ned 2> /dev/null | head -n 1); \
 			echo "Found: $$nedfileordir"; \
 			if [ ! -z $$nedfileordir ]; then \
 				echo "Removing $$nedfileordir"; rm -f $$nedfileordir; \
 			fi; \
 		else \
-			echo "No package found for NED, ignoring"; \
+			echo "Could not find NED package"; \
 		fi; \
 		nedfileordir=""; \
 	done
@@ -66,7 +68,10 @@ simnetworkbuild: simdirsbuild
 		if [ -z $$count ]; then \
 			count=-1; \
 		fi; \
-		nedfileordir=$$(ls -dt $(NSO_NEDS)/*-$$ned-*.tar.gz | head -n 1); \
+                ned=$$(find $(NSO_NEDS) -regextype sed -regex ".*[1-9][0-9]*-$$ned-[1-9][0-9]*.*"); \
+                ned=$${ned##*/}; \
+                echo "Test:$$ned:Test"; \
+		nedfileordir=$$(ls -dt $(NSO_NEDS)/$$ned | head -n 1); \
 		nedfilename=$$(basename $$nedfileordir); \
 		echo "$$ned Ned File $$nedfileordir"; \
 		if [[ ! -d $(PROJECT_PACKAGES)/$$nedfilename && ! -h $(PROJECT_PACKAGES)/$$nedfilename && -f $$nedfileordir ]]; then \

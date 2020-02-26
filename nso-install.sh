@@ -134,6 +134,19 @@ finalize () {
 	fi
 }
 
+get_latest_ned_point_version () {
+	get_latest_ned_version $1 $2
+	for point_ver in "${sorted[@]}"; do
+		print_msg "DEBUG" "$point_ver"
+		base_ver=$(echo $point_ver | sed 's/\.*..$//')
+		print_msg "DEBUG" "Checking $base_ver against $2"
+		if [[ $base_ver == $2 ]]; then
+			ned_version=$point_ver
+			print_msg "DEBUG" "Setting version to $latest_point_ver"
+		fi
+	done
+}
+
 get_latest_ned_version () {
 	initialize
 	version_list=$(request_url "$NSO_REPO_NED_DIR/$1/")
@@ -404,7 +417,7 @@ for ned in "${NEDS[@]}"; do
 	initialize
 	NED_DOWNLOAD_FILE=""
 	print_msg "INFO" "Checking if $ned NED is available on Repo server"
-	url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/"
+	url="--insecure --user $REPO_USERNAME:$REPO_PASSWORD $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/"
 	print_msg "DEBUG" "$url"
         if ! curl --output /dev/null --silent --head --fail $url; then
 		print_msg "WARNING" "NED $ned at location ($NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned) does not exist on repo server"
@@ -412,6 +425,7 @@ for ned in "${NEDS[@]}"; do
 	else
 		print_msg "INFO" "NED: $ned exists on Repo server"
 		NED_DOWNLOAD_VERSION=$NSO_VERSION
+		print_msg "DEBUG" "NED Version: $NED_DOWNLOAD_VERSION"
 		while [[ "$NED_DOWNLOAD_VERSION" == *"."* ]]; do
 			print_msg "INFO" "$ned: Retrieving lastest filename for $NED_DOWNLOAD_VERSION"
 			file_list_xml=$(curl --silent $url/$NED_DOWNLOAD_VERSION/"$REPO_URL_SORT")
@@ -431,8 +445,11 @@ for ned in "${NEDS[@]}"; do
 			NED_FILE_VERSION="${NED_FILE_VERSION/.signed.bin/}"
 			print_msg "INFO" "NED version: $NED_FILE_VERSION"
 			if [ "$NED_FILE_VERSION" = "" ] && [ "$NED_DOWNLOAD_VERSION" != "$ned_version" ]; then
+                                #print_msg "INFO" "Could not find version $NED_DOWNLOAD_VERSION, Checking if there is a point release"
+				#while [[ $NED_POINT_VERSION != $NED_DOWNLOAD_VERSION ]]; then
+				
 				print_msg "WARNING" "$ned NED for $NSO_VERSION not available, getting the latest version available"
-				get_latest_ned_version $ned
+				get_latest_ned_point_version $ned $NED_DOWNLOAD_VERSION
 				NED_DOWNLOAD_VERSION=$ned_version
 			else
 				break
@@ -444,28 +461,28 @@ for ned in "${NEDS[@]}"; do
 		else
 			print_msg "INFO" "NED base filename: $NED_FILE_VERSION"
 			if [ -e $NSO_NED_REPOSITORY/$NSO_VERSION/$NED_FILE_VERSION.tar.gz ]; then
-				print_msg "INFO" "NED $ned ($NED_FILE_VERSION) for NSO version $NSO_VERSION already installed in $NSO_NED_REPOSITORY/$NSO_VERSION"
+				print_msg "INFO" "NED $ned $NED_FILE_VERSION for NSO version $NSO_VERSION already installed in $NSO_NED_REPOSITORY/$NSO_VERSION"
 			else
-				url="--insecure --user $REPO_USERNAME:"$REPO_PASSWORD" $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/$NED_DOWNLOAD_VERSION/$NED_DOWNLOAD_FILE"
+				url="--insecure --user $REPO_USERNAME:$REPO_PASSWORD $NSO_BINARY_REPO_URL/$NSO_REPO_NED_DIR/$ned/$NED_DOWNLOAD_VERSION/$NED_DOWNLOAD_FILE"
 				echo $url
 				if [[ $NED_DOWNLOAD_FILE == *"$ned"*"tar.gz"* ]]; then
 					print_msg "INFO" "Downloading NED $ned for NSO version $NSO_VERSION to $NSO_NED_REPOSITORY/$NSO_VERSION"
 					curl $url >> $NSO_NED_REPOSITORY/$NSO_VERSION/$NED_DOWNLOAD_FILE
 				else
 					if [ -e $LOCAL_BINARYS_DIR/$NED_DOWNLOAD_FILE ]; then
-						print_msg "INFO" "NED binary for $ned ($NED_FILE_VERSION) for NSO version $NSO_VERSION already downloaded"
+						print_msg "INFO" "NED binary for $ned $NED_FILE_VERSION for NSO version $NSO_VERSION already downloaded"
 					else
-						print_msg "INFO" "NED Binary file ($NED_DOWNLOAD_FILE) does not exist, downloading..."
+						print_msg "INFO" "NED Binary file $NED_DOWNLOAD_FILE does not exist, downloading..."
 						curl $url  >> $LOCAL_BINARYS_DIR/$NED_DOWNLOAD_FILE
 						chmod a+x $LOCAL_BINARYS_DIR/$NED_DOWNLOAD_FILE
 					fi
 					if [ -d $NSO_INSTALL_DIR/temp ]; then 
 						rm -rf $NSO_INSTALL_DIR/temp
 					fi
-					print_msg "INFO" "Unpacking NED to $NSO_INSTALL_DIR"/temp
+					print_msg "INFO" "Unpacking NED to $NSO_INSTALL_DIR/temp"
 					mkdir -p $NSO_INSTALL_DIR/temp
 					cp $LOCAL_BINARYS_DIR/$NED_DOWNLOAD_FILE $NSO_INSTALL_DIR/temp/$NED_DOWNLOAD_FILE
-					( cd $NSO_INSTALL_DIR/temp; eval ./$NED_DOWNLOAD_FILE; echo "Copying NED ($NED_FILE_VERSION.tar.gz) to $NSO_NED_REPOSITORY/$NSO_VERSION"; cp $NSO_INSTALL_DIR/temp/$NED_FILE_VERSION.tar.gz $NSO_NED_REPOSITORY/$NSO_VERSION )
+					( cd $NSO_INSTALL_DIR/temp; eval ./$NED_DOWNLOAD_FILE; echo "Copying NED $NED_FILE_VERSION.tar.gz to $NSO_NED_REPOSITORY/$NSO_VERSION"; cp $NSO_INSTALL_DIR/temp/$NED_FILE_VERSION.tar.gz $NSO_NED_REPOSITORY/$NSO_VERSION )
 					rm -rf $NSO_INSTALL_DIR/temp
 				fi
 			fi
