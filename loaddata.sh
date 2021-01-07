@@ -1,6 +1,6 @@
 #!/bin/sh 
 
-ncs_cli -u admin << EOF
+ncs_cli --noaaa << EOF
 config
 load merge $1
 commit dry-run
