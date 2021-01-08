@@ -10,7 +10,7 @@ NCS_RUN_DIR=${rundir}
 NCS_LOG_DIR=${logdir}
 export NCS_CONFIG_DIR NCS_RUN_DIR NCS_LOG_DIR
 
-${ncsdir}/bin/ncs_cli --noaaa << EOF
+${ncsdir}/bin/ncs_cli --user private << EOF
 config
 load merge $1
 commit dry-run
